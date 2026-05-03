@@ -5,8 +5,10 @@ import { useDropzone } from "react-dropzone";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { useRouter } from "next/navigation"
 
 const FileUpload = () => {
+  const router = useRouter();
   const [uploading, setUploading] = useState(false);
 
   const { mutate, isPending } = useMutation({
@@ -36,21 +38,20 @@ const FileUpload = () => {
       try {
         setUploading(true);
         mutate(file, {
-          onSuccess: (data) => {
-            if (!data?.file_key || !data.file_name) {
-              toast.error("Something went wrong.");
-              return;
+          onSuccess: async (uploadResponse) => {
+            const { file_key, file_name } = uploadResponse;
+            try {
+              const chatResponse = await axios.post("/api/create-chat", {
+                file_key,
+                file_name,
+              });
+              toast.success("chat created!");
+              router.push(`/chat/${chatResponse.data.chat_id}`);
+            } catch (error: any) {
+              console.error("Error creating chat:", error);
+              const errorMessage = error.response?.data?.error || "Failed to create chat";
+              toast.error(errorMessage);
             }
-            console.log(data);
-            axios.post("/api/create-chat", {  //after upload call create-chat
-                file_key: data.file_key,
-                file_name: data.file_name,
-              }).then((res) => {
-                console.log(res.data);
-              }).catch((error) => {
-                console.error("Error creating chat:", error);
-              })
-              toast.success("File uploaded and chat created successfully!");
           },
           onError: (error) => {
             console.error("Error uploading file:", error);
@@ -58,7 +59,7 @@ const FileUpload = () => {
           },
         });
       } catch (error) {
-        console.log("Something ent wrong");
+        console.log("Something went wrong");
       } finally {
         setUploading(false);
       }
